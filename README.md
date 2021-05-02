@@ -3,7 +3,7 @@ Eye Tracking Workhop CogSci F2021 @Aarhus University
 
 ## Day 4: 3/5/2021
 
-Please download the following files:
+We will work with these two Rmd files, which you can find in /Scripts:
 - Data_cleaning.Rmd
 - Data_analysis.Rmd
 
