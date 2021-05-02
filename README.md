@@ -9,6 +9,6 @@ Please download the following files:
 
 All data are in the /data folder except for Sample data (too big for git). These can be found at the Dropbox link.
 
-Solutions for the exercises can be found in these files:
+Solutions for the exercises can be found in these files located in /Filled scripts:
 - Data_cleaning_Filled.Rmd
 - Data_analysis_Filled.Rmd
