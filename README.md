@@ -1,8 +1,7 @@
 # Eye-Tracking-Workhop-CogSci-F2021
 Eye Tracking Workhop CogSci F2021 @Aarhus University
 
-Day 4: 3/5/2021
----------------
+## Day 4: 3/5/2021
 
 Please download the following files:
 - Data_cleaning.Rmd
