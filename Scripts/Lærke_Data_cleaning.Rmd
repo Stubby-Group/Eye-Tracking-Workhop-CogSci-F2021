@@ -254,8 +254,17 @@ boxplot(Saccades$PeakVelocity)
 It looks like we have few very long fixations (up to 10 sec!!). This is unrealistic. Let's remove the fixations that are 3 standard deviations above the mean:
 
 ```{r}
-...
+Fixations <- filter(Fixations, Duration < mean(Duration) + 3*sd(Duration))
+Saccades <- filter(Saccades, Amplitude < mean(Amplitude) + 3*sd(Amplitude))
+Saccades <- filter(Saccades, PeakVelocity < mean(PeakVelocity) + 3*sd(PeakVelocity))
+Saccades <- filter(Saccades, MeanVelocity < mean(MeanVelocity) + 3*sd(MeanVelocity))
 
+
+
+boxplot(Fixations$Duration)
+boxplot(Saccades$Amplitude)
+boxplot(Saccades$MeanVelocity)
+boxplot(Saccades$PeakVelocity)
 ```
 
 This should remove around 300 fixations, leaving us with around 17000 (more realistic) fixations.
