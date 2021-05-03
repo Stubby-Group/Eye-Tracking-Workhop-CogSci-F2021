@@ -1,0 +1,356 @@
+---
+title: "Eye tracking Workshop CogSci F2021"
+subtitle: "Data cleaning exercise"
+author: "Fabio Trecca"
+date: "3/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+pacman::p_load(tidyverse, jpeg, grid)
+```
+
+## Load the data
+
+Let's start by loading our data in and row bind our data sets so that we have one Fixations data set and one Saccades data set for both experiments (we can optionally do the same with the Samples data set, but this will take some time so I don't think we should do it in class):
+
+```{r load EyeLink data}
+## Load fixations data for both experiments
+foraging_fixations <- read_csv("/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/foraging_fixations.csv")
+soceng_fixations <- read_csv("/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/soceng_fixations.csv")
+
+## Load saccades data for both experiments
+foraging_saccades <- read_csv("/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/foraging_saccades.csv")
+soceng_saccades <- read_csv("/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/soceng_saccades.csv")
+
+## Load sample data for both experiments
+# foraging_samples <- read_csv( ... )
+# soceng_samples <- read_csv( ... )
+```
+
+```{r add info about the experiment}
+## This will be useful below when row binding the data sets
+foraging_fixations$Task <- "Visual foraging"
+foraging_saccades$Task <- "Visual foraging"
+soceng_fixations$Task <- "Social engagement"
+soceng_saccades$Task <- "Social engagement"
+#foraging_samples$Task <- "Visual foraging"
+#soceng_samples$Task <- "Social engagement"
+```
+
+```{r bind the dataframes}
+Fixations <- rbind(foraging_fixations, soceng_fixations)
+Saccades <- rbind(foraging_saccades, soceng_saccades)
+
+## You can also bind the Samples dataset if you want, but it will take some time
+#Samples <- rbind(foraging_samples, soceng_samples)
+
+## keep only the new data sets and remove the old ones
+rm(list = ls(pattern = "foraging|soceng"))
+```
+
+Beautiful!
+
+The data sets contain a lot variables -- many more than we are going to use. Therefore, we will start by dropping all the columns we don't need and only keeping the ones we are interested in. 
+
+```{r keep only needed variables}
+Fixations = Fixations %>% 
+  select(
+    ParticipantID = RECORDING_SESSION_LABEL,
+    Trial = TRIAL_INDEX,
+    FixationNo = CURRENT_FIX_INDEX,
+    StartTime = CURRENT_FIX_START,
+    EndTime = CURRENT_FIX_END,
+    Duration = CURRENT_FIX_DURATION,
+    PositionX = CURRENT_FIX_X,
+    PositionY = CURRENT_FIX_Y,
+    PupilSize = CURRENT_FIX_PUPIL,
+    EyeTracked = EYE_USED,
+    Task
+    ) 
+
+Saccades = Saccades %>%
+  select(
+    ParticipantID= RECORDING_SESSION_LABEL,
+    Trial= TRIAL_INDEX,
+    SaccadeNo= CURRENT_SAC_INDEX,
+    StartTime= CURRENT_SAC_START_TIME,
+    EndTime= CURRENT_SAC_END_TIME,
+    Duration= CURRENT_SAC_DURATION,
+    StartX= CURRENT_SAC_START_X,
+    StartY= CURRENT_SAC_START_Y,
+    EndX= CURRENT_SAC_END_X,
+    EndY= CURRENT_SAC_END_Y,
+    PeakVelocity= CURRENT_SAC_PEAK_VELOCITY,
+    MeanVelocity= CURRENT_SAC_AVG_VELOCITY,
+    Blink= CURRENT_SAC_CONTAINS_BLINK,
+    Direction= CURRENT_SAC_DIRECTION,
+    Amplitude= CURRENT_SAC_AMPLITUDE,
+    EyeTracked= EYE_USED,
+    Task)
+
+# Samples = Samples %>% 
+#   select(
+#     ParticipantID= ...,
+#     Trial= ...,
+#     Time= ...,
+#     LeftGazeX= ...,
+#     LeftGazeY= ...,
+#     RightGazeX= ...,
+#     RightGazeY= ...,
+#     LeftPupilSize= ...,
+#     RightPupilSize= ...,
+#     EyeTracked= ...,
+#     Task
+#     )
+```
+
+## Sanity checks
+
+The data are now loaded in. The next step is to do a quick sanity check to make sure that everything looks good. We will do this by plotting x/y coordinates and pupil sizes from the Fixations data set using histograms:
+
+```{r}
+options(scipen=999)
+hist(Fixations$PositionX)
+hist(Fixations$PositionY)
+
+hist(Fixations$PupilSize)
+
+hist(Saccades$StartX)
+hist(Saccades$StartY)
+hist(Saccades$EndX)
+hist(Saccades$EndY)
+
+```
+
+We quickly notice two issues. First, both x/y coordinates and pupil sizes seem to be very large numbers. The x/y coordinates are in the tens and hundreds of thousands here, while the real values must fall within the screen coordinates of 0-1680 for the x-axis and 0-1050 for the y-axis. The pupil sizes usually vary between 2000 and 15000, but again we see much larger numbers here. It's clear that the EyeLink software must have added two zeros (00) to each number when exporting to Excel. Let's fix this by simply dividing each number by 100.
+
+Find all the relevant variables in both data sets and correct for the extra zeros:
+
+```{r fix problem with extra zeroes}
+  # Fix the pupil size issue:
+# Fixations$PupilSize <- Fixations$PupilSize / 100
+hist(Fixations$PupilSize)
+
+  # Fix the x/y coordinate issue: (Fixations)
+#Fixations$PositionX <- Fixations$PositionX / 100
+#Fixations$PositionY <- Fixations$PositionY / 100
+hist(Fixations$PositionX)
+hist(Fixations$PositionY)
+
+  # Fix the x/y coordinate issue: (Saccades)
+#Saccades$StartX <- Saccades$StartX / 100
+#Saccades$StartY <- Saccades$StartY / 100
+#Saccades$EndX <- Saccades$EndX / 100
+#Saccades$EndY <- Saccades$EndY / 100
+
+## The same problem applies to the MeanVelocity variable too -- let's fix it:
+#Saccades$MeanVelocity <- Saccades$MeanVelocity / 100
+```
+
+Ahh, much better!
+
+The second problem is that some values of x/y coordinates of both fixations and saccades seem to fall outside of the allowed range. Have a look at it yourself:
+
+```{r}
+# Now there are still coordinates outside of the screen. We can delete those...
+
+Fixations <- subset(Fixations, PositionX >= 0 & PositionX <= 1680)
+Fixations <- subset(Fixations, PositionY >= 0 & PositionY <= 1050)
+
+Saccades <- subset(Saccades, StartX >= 0 & StartX <= 1680)
+Saccades <- subset(Saccades, StartY >= 0 & StartY <= 1050)
+Saccades <- subset(Saccades, EndX >= 0 & EndX <= 1680)
+Saccades <- subset(Saccades, EndY >= 0 & EndY <= 1050)
+
+# If something here gives an error, try adding na.rm = TRUE
+```
+
+This is because of artifacts -- blinks, track loss etc, -- which add noise to the data. There are not many of these "wrong" data points, but it's important to remove them as they will otherwise affect our analysis. Again, the screen resolution was 1680 x 1050.
+
+```{r}
+Fixations <- Fixations %>% 
+  ...
+
+Saccades <- Saccades %>% 
+  ...
+# Did this in the above chunk :)
+```
+
+Let's see whether our correction has worked by looking at the range of the data:
+
+```{r}
+... # I just went back to the hist() code :)
+
+```
+
+Tres bien!!
+
+And of course there is a third problem, which we can't see from the histograms, but which we know of from the EyeLink user manual: the y-axis is flipped so that its origin is at the top-right of the screen rather than at the bottom-right. This creates a problem for plotting the data.You can clearly see the issue in the plot below:
+
+```{r}
+x <-
+  Fixations %>% filter(
+    ParticipantID == "klara1" &
+      Task == "Visual foraging" & Trial == 10
+  )
+
+img <- jpeg::readJPEG('/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/stimuli_Foraging/space_capsules.jpg')  
+img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+ggplot(x, aes(PositionX, PositionY)) +
+  annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+  geom_point(aes(size = Duration), color = "red") +
+  theme_bw()
+```
+
+The fixations do not match the picture very well. Let's fix this problem by flipping the y-axis back. To do this, we just take the maximum y-axis coordinate *+1* minus the coordinate:
+
+```{r}
+Fixations <- Fixations %>% mutate(PositionY_flipped = 1051-PositionY)
+Saccades <- Saccades %>% mutate(StartY_flipped = 1051-StartY, EndY_flipped = 1051-EndY)
+```
+
+Now let's plot the picture again: 
+
+```{r}
+x <-
+  Fixations %>% filter(
+    ParticipantID == "klara1" &
+      Task == "Visual foraging" & 
+      Trial == 10
+  )
+
+img <- jpeg::readJPEG('/Users/manon/Desktop/Uni og Selvstudie/4. Semester/Eye Tracking Workshop/Eye-Tracking-Workhop-CogSci-F2021/data/stimuli_Foraging/space_capsules.jpg')  
+img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+ggplot(x, aes(PositionX, PositionY_flipped)) +
+  annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+  geom_point(aes(size = Duration), color = "red") +
+  theme_bw()
+```
+
+BELLISSIMO! Now we are talking!
+
+## Check for outliers and weird values
+
+Let's check if there are any outliers in fixation duration and saccade amplitude and velocity:
+
+```{r}
+## Check for outliers in fixation durations using a boxplot
+...
+
+## Check for outliers in saccade amplitude using a boxplot
+...
+
+## Check for outliers in saccade mean velocity using a boxplot
+...
+
+## Check for outliers in saccade peak velocity using a boxplot
+...
+
+```
+
+It looks like we have few very long fixations (up to 10 sec!!). This is unrealistic. Let's remove the fixations that are 3 standard deviations above the mean:
+
+```{r}
+...
+
+```
+
+This should remove around 300 fixations, leaving us with around 17000 (more realistic) fixations.
+
+## Eyeball the data
+
+Let's make some preliminary frequency distributions to get a general idea of what the data look like.
+
+```{r}
+## Check distribution of number fixations (bonus: do this separately for each task)
+
+...
+
+```
+
+```{r}
+## Check distribution of number of saccades (bonus: do this separately for each task)
+
+...
+
+```
+
+```{r}
+## Check distribution of pupil sizes for the Social Engagement task
+
+...
+
+## You can see that the distribution does not look unimodal. Why do you think this is the case?
+```
+
+```{r}
+## Check distribution of saccade amplitude in the two experiments
+
+...
+
+## Again notice that amplitude is bimodal in the Social engagement task. Why??
+```
+
+## Add auxiliary data
+
+So far so good. On top of the eye tracking data, we have some auxiliary data (e.g., PsychoPy logfiles) that we need in our analysis. For instance, you may have notice that we are missing information on whether the task in the "Visual foraging" experiment is "Searching" or "Counting". Let's merge these files with the existing data sets to add this (and more) information.
+
+```{r}
+## For the Foraging task, we need to figure out which participant was assigned to which order (Searching then Counting or Counting then Searching). The order (1, 2) is coded in the ParticipantID variable. Let's expand it
+Fixations <- Fixations %>% mutate(Order = ... )
+Saccades <- Saccades %>% mutate(Order = ... )
+
+
+## We also have a CSV file that tells us which pictures were shown in which trial. We will need this for plotting the data later on. Let's load this file in and left-join it with the Fixations and Saccades
+logfiles_foraging <- read_csv("data/ForagingOrder.csv")
+Fixations <- ...
+Saccades <- ...
+
+## For the Social engagement task, we have logiles from PsychoPy that tell us about the order of presentation of the videos and which condition they are associated with
+logfiles_socialengagement <- 
+   vroom(list.files(
+    path = "data/logfiles/",
+    pattern = ".csv",
+    full.names = TRUE)
+    ) %>% 
+  rename("ParticipantID" = subject, "Trial" = `...1`) %>% 
+  mutate(Trial = Trial+1)
+
+Fixations <- left_join(Fixations, logfiles_socialengagement, by = c("ParticipantID", "Trial"))
+```
+
+## Import fixation number and saccade number from processed data to samples
+
+We will not do this in class, but here is the code in case you want to try it at home. This piece of code takes information about Start and End timestamps for fixations and saccades (from the Fixations and Saccades data sets, respectively) and uses it to merge the two data sets with the Samples data set. THis can be useful if you want to add information about whether each data point in the Samples data set is either in a fixation or in a asaccade
+
+```{r}
+# for (t in seq(nrow(Fixations))){
+#   StartTime=Fixations$StartTime[t]
+#   EndTime=Fixations$EndTime[t]
+#   ID=Fixations$ParticipantID[t]
+#   Trial=Fixations$Trial[t]
+#   FixN=Fixations$FixationNo[t]
+#   Samples$FixationNo[Samples$Time >= StartTime  & Samples$Time <= EndTime & Samples$ParticipantID==ID & Samples$Trial==Trial]=FixN
+# }
+# 
+# for (t in seq(nrow(Saccades))){
+#   StartTime=Saccades$StartTime[t]
+#   EndTime=Saccades$EndTime[t]
+#   ID=Saccades$ParticipantID[t]
+#   Trial=Saccades$Trial[t]
+#   SacN=Saccades$SaccadeNo[t]
+#   Samples$SaccadeNo[Samples$Time >= StartTime  & Samples$Time <= EndTime & Samples$ParticipantID==ID & Samples$Trial==Trial]=SacN
+# }
+```
+
+## End by saving all the new files
+
+```{r}
+write_csv(Fixations, "data/Fixations_final.csv")
+write_csv(Saccades, "data/Saccades_final.csv")
+#write_csv(Samples, "data/Samples_final.csv") ## only relevant if you have the Samples data set
+```
+
