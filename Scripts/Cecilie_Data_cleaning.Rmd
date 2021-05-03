@@ -18,12 +18,12 @@ Let's start by loading our data in and row bind our data sets so that we have on
 
 ```{r load EyeLink data}
 ## Load fixations data for both experiments
-foraging_fixations <- read_csv( ... )
-soceng_fixations <- read_csv( ... )
+foraging_fixations <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/foraging_fixations.csv")
+soceng_fixations <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/soceng_fixations.csv")
 
 ## Load saccades data for both experiments
-foraging_saccades <- read_csv( ... )
-soceng_saccades <- read_csv( ... )
+foraging_saccades <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/foraging_saccades.csv")
+soceng_saccades <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/soceng_saccades.csv")
 
 ## Load sample data for both experiments
 # foraging_samples <- read_csv( ... )
@@ -41,8 +41,8 @@ soceng_saccades$Task <- "Social engagement"
 ```
 
 ```{r bind the dataframes}
-Fixations <- rbind( ... )
-Saccades <- rbind( ... )
+Fixations <- rbind(foraging_fixations, soceng_fixations)
+Saccades <- rbind(foraging_saccades, soceng_saccades)
 
 ## You can also bind the Samples dataset if you want, but it will take some time
 #Samples <- rbind(foraging_samples, soceng_samples)
@@ -58,37 +58,37 @@ The data sets contain a lot variables -- many more than we are going to use. The
 ```{r keep only needed variables}
 Fixations = Fixations %>% 
   select(
-    ParticipantID= ...,
-    Trial= ...,
-    FixationNo= ...,
-    StartTime= ...,
-    EndTime= ...,
-    Duration= ...,
-    PositionX= ...,
-    PositionY= ...,
-    PupilSize= ...,
-    EyeTracked= ...,
+    ParticipantID= RECORDING_SESSION_LABEL,
+    Trial= TRIAL_INDEX,
+    FixationNo= CURRENT_FIX_INDEX,
+    StartTime= CURRENT_FIX_START,
+    EndTime= CURRENT_FIX_END,
+    Duration= CURRENT_FIX_DURATION,
+    PositionX= CURRENT_FIX_X,
+    PositionY= CURRENT_FIX_Y,
+    PupilSize= CURRENT_FIX_PUPIL,
+    EyeTracked= EYE_USED,
     Task
     ) 
 
 Saccades = Saccades %>%
   select(
-    ParticipantID= ...,
-    Trial= ...,
-    SaccadeNo= ...,
-    StartTime= ...,
-    EndTime= ...,
-    Duration= ...,
-    StartX= ...,
-    StartY= ...,
-    EndX= ...,
-    EndY= ...,
-    PeakVelocity= ...,
-    MeanVelocity= ...,
-    Blink= ...,
-    Direction= ...,
-    Amplitude= ...,
-    EyeTracked= ...,
+    ParticipantID= RECORDING_SESSION_LABEL,
+    Trial= TRIAL_INDEX,
+    SaccadeNo= CURRENT_SAC_INDEX,
+    StartTime= CURRENT_SAC_START_TIME,
+    EndTime= CURRENT_SAC_END_TIME,
+    Duration= CURRENT_SAC_DURATION,
+    StartX= CURRENT_SAC_START_X,
+    StartY= CURRENT_SAC_START_Y,
+    EndX= CURRENT_SAC_END_X,
+    EndY= CURRENT_SAC_END_Y,
+    PeakVelocity= CURRENT_SAC_PEAK_VELOCITY,
+    MeanVelocity= CURRENT_SAC_AVG_VELOCITY,
+    Blink= CURRENT_SAC_CONTAINS_BLINK,
+    Direction= CURRENT_SAC_DIRECTION,
+    Amplitude= CURRENT_SAC_AMPLITUDE,
+    EyeTracked= EYE_USED,
     Task)
 
 # Samples = Samples %>% 
@@ -112,8 +112,8 @@ Saccades = Saccades %>%
 The data are now loaded in. The next step is to do a quick sanity check to make sure that everything looks good. We will do this by plotting x/y coordinates and pupil sizes from the Fixations data set using histograms:
 
 ```{r}
-...
 
+hist(Fixations$PupilSize)
 ```
 
 We quickly notice two issues. First, both x/y coordinates and pupil sizes seem to be very large numbers. The x/y coordinates are in the tens and hundreds of thousands here, while the real values must fall within the screen coordinates of 0-1680 for the x-axis and 0-1050 for the y-axis. The pupil sizes usually vary between 2000 and 15000, but again we see much larger numbers here. It's clear that the EyeLink software must have added two zeros (00) to each number when exporting to Excel. Let's fix this by simply dividing each number by 100.
@@ -121,10 +121,20 @@ We quickly notice two issues. First, both x/y coordinates and pupil sizes seem t
 Find all the relevant variables in both data sets and correct for the extra zeros:
 
 ```{r fix problem with extra zeroes}
-...
+
+Fixations$PupilSize <- (Fixations$PupilSize / 100)
+Fixations$PositionX <- (Fixations$PositionX / 100)
+Fixations$PositionY <- (Fixations$PositionY / 100)
+
+Saccades$StartX <- (Saccades$StartX / 100)
+Saccades$StartY <- (Saccades$StartY / 100)
+Saccades$EndX <- (Saccades$EndX / 100)
+Saccades$EndY <- (Saccades$EndY / 100)
 
 ## The same problem applies to the MeanVelocity variable too -- let's fix it:
-Saccades <- Saccades %>% mutate( ... )
+Saccades$MeanVelocity <- (Saccades$MeanVelocity / 100)
+
+hist(Fixations$PositionX)
 ```
 
 Ahh, much better!
@@ -132,7 +142,17 @@ Ahh, much better!
 The second problem is that some values of x/y coordinates of both fixations and saccades seem to fall outside of the allowed range. Have a look at it yourself:
 
 ```{r}
-...
+#0-1680 for the x-axis and 0-1050 for the y-axis
+
+Fixations <- subset(Fixations, PositionX >= 0 & PositionX <= 1680)
+Fixations <- subset(Fixations, PositionY >= 0 & PositionY <= 1050)
+
+Saccades <- subset(Saccades, StartX >= 0 & StartX <= 1680)
+Saccades <- subset(Saccades, StartY >= 0 & StartY <= 1050)
+
+Saccades <- subset(Saccades, EndX >= 0 & EndX <= 1680)
+Saccades <- subset(Saccades, EndY >= 0 & EndY <= 1050)
+
 
 # If something here gives an error, try adding na.rm = TRUE
 ```
