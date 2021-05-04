@@ -206,28 +206,46 @@ We want to test the hypothesis that viewers are more emotionally engaged when in
 First, we have to extract data from the PyschoPy variable "video" to determine whether the condition is Ostensive vs Non-ostensive and Direct vs Indirect:
 
 ```{r}
-Fixations <- Fixations %>% 
+# Separate for papers
+Fixations_forage <- subset(Fixations, Task == "Visual foraging")
+Fixations_soceng <- subset(Fixations, Task == "Social engagement")
+
+
+Fixations_soceng <- Fixations_soceng %>% 
   mutate(
     Direction = case_when(
-      grepl('dir', Fixations$video) ~ "Direct",
-      grepl('div', Fixations$video) ~ "Indirect"),
+      grepl('dir', Fixations_soceng$video) ~ "Direct",
+      grepl('div', Fixations_soceng$video) ~ "Indirect"),
     Ostensiveness = case_when(
-      grepl('\\+o', Fixations$video) ~ "Ostensive",
-      grepl('-o', Fixations$video) ~ "Non-ostensive")
+      grepl('\\+o', Fixations_soceng$video) ~ "Ostensive",
+      grepl('-o', Fixations_soceng$video) ~ "Non-ostensive")
   )
 ```
 
 We can now plot the data. We start by looking at the overall values of pupil size. Do they differ based on conditions (Ostensiveness & Direction)? Let's plot the data first and model them afterwards.
 
 ```{r}
-...
+# Effect of ostensiveness
+ggplot(data = Fixations_soceng)+
+  geom_density(aes(PupilSize, fill = Ostensiveness), alpha = 0.5)+
+  theme_light()
 
+mean(Fixations_soceng$PupilSize[Fixations_soceng$Ostensiveness == "Ostensive"])
+mean(Fixations_soceng$PupilSize[Fixations_soceng$Ostensiveness == "Non-ostensive"])
+
+# Effect of direction
+ggplot(data = Fixations_soceng)+
+  geom_density(aes(PupilSize, fill = Direction), alpha = 0.5)+
+  theme_light()
+
+mean(Fixations_soceng$PupilSize[Fixations_soceng$Direction == "Direct"])
+mean(Fixations_soceng$PupilSize[Fixations_soceng$Direction == "Indirect"])
 ```
 
 Now model the data. Make sure to include all relevant fixed effects. Make also sure that you account for the fact that different people have different baselines of pupil size.
 
 ```{r}
-mPupil <- ...
+mPupil <- glmer(PupilSize ~ Ostensiveness * Direction + (1 | ParticipantID), data = Fixations_soceng)
 
 summary(mPupil)
 ```
@@ -258,14 +276,21 @@ Fixations may last longer in the Ostensive + Direct condition as a sign that peo
 Let's start by plotting the data:
 
 ```{r}
-...
+ggplot(data = Fixations_soceng)+
+  geom_density(aes(Duration, fill = Ostensiveness, color = Direction), alpha = 0.5)+
+  theme_light()
 
 ```
 
 The plot doesn't seem to show much difference. What if we model the data?
 
 ```{r}
-mDuration <- ...
+mDuration <- glmer(
+  Duration ~ Duration + 
+    (1 + SearchOrCount| ParticipantID) +
+    (1 + SearchOrCount| Stimulus),
+  family = gaussian(link = "log"),
+  data = Saccades_forage)
 
 summary(mDuration)
 ```
