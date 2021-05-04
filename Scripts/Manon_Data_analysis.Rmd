@@ -31,11 +31,24 @@ We know from the paper that the amplitude of saccades in the searching task has 
 Let's start by testing this hypothesis. First of all we plot the density distribution of saccade amplitudes in the two tasks:
 
 ```{r}
+# Separate for papers
 Saccades_forage <- subset(Saccades, Task == "Visual foraging")
 Saccades_soceng <- subset(Saccades, Task == "Social engagement")
   
+# Separate for conditions
 Saccades_search <- subset(Saccades_forage, SearchOrCount == "Search")
 Saccades_count <- subset(Saccades_forage, SearchOrCount == "Count")
+
+
+plot(density(Saccades_search$Amplitude))
+plot(density(Saccades_count$Amplitude))
+
+# There are more long saccades in the search condition because you may go from one corner to a completely different corner.
+# A lot more short saccades in the count condition
+
+ggplot()+
+  geom_density(aes(Amplitude, fill = SearchOrCount), alpha = 0.5, data = Saccades_forage)+
+  theme_light()
 ```
 
 The plot seems to show that searching has a thin head and a long tail, whereas the opposite is true of counting.
@@ -43,19 +56,35 @@ The plot seems to show that searching has a thin head and a long tail, whereas t
 Let's model the data. Start by trying to figure out how the data are distributed. We will first make a gaussian model for baseline, which we know doesn't make sense given what the data looks like. Find the fixed and random effect structure that you think is most appropriate.
 
 ```{r}
-mGaus <- ...
+mGaus <- glmer(
+  Amplitude ~ SearchOrCount + 
+    (1 + SearchOrCount| ParticipantID) +
+    (1 + SearchOrCount| Stimulus),
+  family = gaussian(link = "identity"), #gaussian? means assuming normal distribution. identity link? means
+  data = Saccades_forage)
 
 summary(mGaus)
+# Okay, 
+# the unit is 'degrees of visual angle'
+# the are not super normal, however, because they are very skewed to
 ```
 
 We can then try modelling the data with a lognormal distribution, which seems more appropriate to our data. (Notice that for the lognormal model to work, Amplitude should be different from zero -- please fix if necessary).
 
 ```{r}
-Saccades <- Saccades %>% filter(Amplitude > 0)
+Saccades_forage <- Saccades_forage %>% filter(Amplitude > 0)
 
-mLog <- ...
+mLog <- glmer(
+  Amplitude ~ SearchOrCount + 
+    (1 + SearchOrCount| ParticipantID) +
+    (1 + SearchOrCount| Stimulus),
+  family = gaussian(link = "log"),
+  data = Saccades_forage)
 
 summary(mLog)
+
+# what does 'log normal' mean? (family = gaussian(link = "log"))
+# it means applying a log transformation, and "moving the mode towards the center and cutting the tail so everything gets shifted a little bit to the right and it looks more normal."
 ```
 
 The mean amplitude in the Search condition is significantly higher, which is consistent with the plot. But which model is the best one? Generate predictions from the models and plot their density, then compare the predictions to the distribution of the actual data. What do you notice?
@@ -70,11 +99,13 @@ plot(density(pm2), main = "Log-transformed")
 plot(density(Saccades$Amplitude), main = "Observed saccade amplitude")
 ```
 
-Numericaly compare the model predictions to the actual data (in absolute values) in order to get an idea of how well the model predicts the data:
+Numerically compare the model predictions to the actual data (in absolute values) in order to get an idea of how well the model predicts the data:
 
 ```{r}
-summary(abs(pm1- ... ))
-summary(abs(pm2- ... ))
+summary(abs(pm1- Saccades_forage$Amplitude))
+summary(abs(pm2- Saccades_forage$Amplitude))
+
+# what do we learn from this?
 ```
 
 We can compare observed data and model predictions more formally by looking at the residuals of the fitted models. To do this, we use the DHARMa (residual Diagnostics for HierArchical Regression Models) package:

@@ -1,0 +1,259 @@
+---
+title: "Eye tracking Workshop CogSci F2021"
+subtitle: "Data visualization exercise (filled)"
+author: "Fabio Trecca"
+date: "4/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+pacman::p_load(tidyverse, jpeg, grid, ggpubr, ggrepel)
+```
+
+## Load the data
+
+```{r load data}
+## We need the guess_max = Inf here, even though this will make the file loading slower
+Fixations <- read_csv("data/Fixations_final.csv", guess_max = Inf)
+Saccades <- read_csv("data/Saccades_final.csv")
+```
+
+## Visual foraging (Rhodes et al., 2014)
+
+### Scanpaths
+
+A classic way of plotting eye tracking data is with *scanpaths*. Scanpaths show fixations as circles of different size (where larger circles mean longer fixations) and saccades as lines connecting the circles.
+
+Let's make a scanpath for one of the pictures in the Visual foraging experiment. We'll make this into a function so that we don't have to rewrite the many lines of code every time:
+
+```{r}
+make_scanpath <- function(participant, trial){
+  
+  ## Select only the participant/trial of interest
+  x <- Fixations[Fixations$ParticipantID == participant & Fixations$Trial == trial,]
+  
+  ## Load the picture and turn in into a rasterized grob that we can plot in ggplot
+  img <- jpeg::readJPEG(paste0('data/stimuli_foraging/', x$Stimulus[1])) 
+  img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+  
+  p <- ggplot(x, aes(PositionX, PositionY, color = FixationNo)) + 
+    # plot the picture in the background
+    annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+    # hacky way to adjust opacity of background picture:
+    annotate(geom = "rect", xmin = 0, xmax = 1680, ymin = 0, ymax = 1050, fill = "white", alpha = .3) +
+    geom_path(color = "black") +
+    geom_point(aes(size = Duration), alpha = .8) +
+    geom_text_repel(aes(label = Duration), size = 3, color = "white") +
+    xlim(0,1680) + ylim(0,1050) +
+    theme_light()
+  
+  print(p)
+}
+```
+
+Let's make a scanpath for one trial in the Search condition:
+
+```{r}
+...
+```
+
+And here is one from the Count condition:
+
+```{r}
+...
+```
+
+Smukt!
+
+*Exercise 1:*
+
+Using a for-loop, make a scanpath for one participant of your choice in the Visual foraging experiment. Use facets to plot the 10 trials separately for each participant. Use these plots as diagnostic tools in order to answer the following questions:
+
+- Do the data look reasonable and of good quality, or are there artefacts?
+- Can we differentiate between the two conditions (Count and Search) only by looking at the scanpaths?
+- Can we spot the trials in which the participants found the star?
+
+```{r}
+...
+```
+
+### Heatmaps
+
+Now we are going to apply the same plotting principles as in the scanpaths, but instead of plotting actual fixations (and their interconnecting lines) we will plot a density distribution of fixations across a trial, thereby losing the temporal aspect of scanpaths (but gaining in readability).
+
+Let's choose some heatmap-y colors first:
+
+```{r}
+heat_colors <- colorRampPalette(
+  c(
+    "#00007F",
+    "blue",
+    "#007FFF",
+    "cyan",
+    "#7FFF7F",
+    "yellow",
+    "#FF7F00",
+    "red",
+    "#7F0000"
+  )
+)
+```
+
+Then, we build a function that plots the heatmap using ggplot2:
+
+```{r}
+make_heatmap <- function(participant, trial){
+  
+  ## Select only the participant/trial of interest
+  x <- Fixations[Fixations$ParticipantID == participant & Fixations$Trial == trial,]
+  
+  ## Load the picture and turn in into a rasterized grob that we can plot in ggplot
+  img <- jpeg::readJPEG(paste0('data/stimuli_foraging/', x$Stimulus[1])) 
+  img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+  
+  p <- ggplot(Fixations, aes(PositionX, PositionY, color = FixationNo)) + 
+    annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+    annotate(geom = "rect", xmin = 0, xmax = 1680, ymin = 0, ymax = 1050, fill = "white", alpha = .3) +
+    # the next line is the density function (needed to plot the different colors)
+    stat_density2d(geom = "raster", aes(fill = ..density.., alpha = sqrt(sqrt(..density..))), contour = FALSE, n = 1000) +
+    # we take the density data and apply the colors that we chose
+    scale_fill_gradientn(colours = heat_colors(10), trans="sqrt") +
+    # and apply dynamic alpha to it so that the fewer the fixations, the more transparent the color
+    scale_alpha(range = c(0.1, 0.6)) + xlim(0,1680) + ylim(0,1050) + theme(legend.position = "none") +
+    theme_light()
+  
+  print(p)
+}
+```
+
+And now we can finally make our heatmap -- pick a participant and a trial:
+
+```{r}
+...
+```
+
+And one more:
+
+```{r}
+...
+```
+
+Wonderful!
+
+*Exercise 2*:
+
+Using the heatmap code above, make a cumulative heatmap for all participants in the Foraging experiment looking at the ‘penguins.jpg’ image. Facet the graph by condition (Search vs. Count). What do you notice?
+
+```{r}
+...
+```
+
+### Areas of Interest (AOIs)
+
+In order to draw AOIs around our stimuli, we have to figure out what their coordinates should be. This may require some trial-and-error. In this example, I want to draw a rectangle around the black sheep in the foreground. The approximate coordinates are the following:
+
+```{r}
+## Define an AOI for the black sheep
+AOI = c(720, 930, 50, 330)
+      #xmin xmax ymin ymax
+```
+
+```{r}
+x <-
+  Fixations %>% filter(Duration >= 300 &
+                         PositionX >= AOI[1] &
+                         PositionX <= AOI[2] & PositionY >= AOI[3] & PositionY <= AOI[4])
+img <- jpeg::readJPEG('data/stimuli_foraging/sheep.jpg')  
+img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+ggplot(x, aes(PositionX, PositionY, color = FixationNo)) + 
+  annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+  # this line draws the rectangle for the AOI
+  geom_rect(xmin=AOI[1], xmax=AOI[2], ymin=AOI[3], ymax=AOI[4], fill = NA, size = 1, color = 'red') +
+  stat_density2d(geom = "raster", aes(fill = ..density.., alpha = sqrt(sqrt(..density..))), contour = FALSE, n = 1000) + 
+  scale_fill_gradientn(colours = heat_colors(10), trans="sqrt") +
+  scale_alpha(range = c(0.1, 0.6)) +
+  xlim(0,1680) + ylim(0,1050) +
+  theme(legend.position = "none")
+```
+
+*Excercise 3*:
+
+Make a cumulative heatmap for all participants in the Foraging experiment looking at the ‘dolphins.jpg’ image and facet the graph by Foraging Type (Search vs. Count) after having created an AOI at a location of your choice. What do you notice?
+
+```{r}
+...
+```
+
+## Growth curves
+
+Growth curves show how proportional looking at one or more specific AOIs changes (not necessarily grows…) over time and across participants. Let’s start by defining to AOIs:
+
+```{r}
+AOI1 = c(300, 700, 200, 450)
+AOI2 = c(600, 1100, 600, 750)
+```
+
+Let’s make a summary dataset for fixations and filter the fixations that fall within one of the two AOIs. The plot below shows what the two AOIs look like:
+
+```{r}
+x <- Fixations %>%
+  filter(Duration >= 300 & Stimulus == "trees.jpg") %>%
+  mutate(
+    InAOI1 = ifelse(
+      PositionX >= AOI1[1] &
+        PositionX <= AOI1[2] &
+        PositionY >= AOI1[3] & PositionY <= AOI1[4],
+      TRUE,
+      FALSE
+    ),
+    InAOI2 = ifelse(
+      PositionX >= AOI2[1] &
+        PositionX <= AOI2[2] &
+        PositionY >= AOI2[3] & PositionY <= AOI2[4],
+      TRUE,
+      FALSE
+    )
+  )
+img <- jpeg::readJPEG('data/stimuli_foraging/trees.jpg')  
+img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+ggplot(x, aes(PositionX, PositionY, color = FixationNo)) + 
+  annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+  geom_rect(xmin=AOI1[1], xmax=AOI1[2], ymin=AOI1[3], ymax=AOI1[4], fill = NA, size = 1, color = 'red') +
+  annotate(geom = "label", x = 500, y = 450, label = "AOI1", color = "red") +
+  geom_rect(xmin=AOI2[1], xmax=AOI2[2], ymin=AOI2[3], ymax=AOI2[4], fill = NA, size = 1, color = 'blue') +
+  annotate(geom = "label", x = 850, y = 750, label = "AOI2", color = "blue") +
+  xlim(0,1680) + ylim(0,1050) +
+  theme(legend.position = "none") +
+  theme_light()
+```
+
+Now let’s make a new summary dataset where we compute proportions of fixations in either of the two AOIs divided by total number of fixations, and let’s plot this proportion using a smoothing function. Which area was fixated first?
+
+```{r}
+Prop <- x %>% 
+  group_by(FixationNo) %>% 
+  summarize(AOI1 = sum(InAOI1 == TRUE)/(length(InAOI1)+length(InAOI2))*100,
+            AOI2 = sum(InAOI2 == TRUE)/(length(InAOI1)+length(InAOI2))*100) %>% 
+  gather("AOI", "Proportion", AOI1:AOI2)
+ggplot(Prop, aes(FixationNo, Proportion, color = AOI)) +
+  geom_smooth() + ylim(-10,100) +
+  theme_light()
+```
+
+*Exercise 4*:
+
+Compute the Time To First Fixation (TTFF) to AOI1 in the picture above:
+
+```{r}
+...
+```
+
+*Exercise 5*:
+
+Try adding a third AOI and computing proportional looks to it like we did above.
+
+```{r}
+...
+```
