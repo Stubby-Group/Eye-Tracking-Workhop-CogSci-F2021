@@ -18,6 +18,9 @@ pacman::p_load(tidyverse, jpeg, grid, ggpubr, ggrepel)
 ## We need the guess_max = Inf here, even though this will make the file loading slower
 Fixations <- read_csv("data/Fixations_final.csv", guess_max = Inf)
 Saccades <- read_csv("data/Saccades_final.csv")
+
+
+fixations_foraging <- subset(Fixations, Task == "Visual foraging")
 ```
 
 ## Visual foraging (Rhodes et al., 2014)
@@ -41,7 +44,7 @@ make_scanpath <- function(participant, trial){
   img <- jpeg::readJPEG(paste0('data/stimuli_foraging/', x$Stimulus[1])) 
   img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
   
-  p <- ggplot(x, aes(PositionX, PositionY, color = FixationNo)) + 
+  p <- ggplot(x, aes(PositionX, PositionY_flipped, color = FixationNo)) + 
     # plot the picture in the background
     annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
     # hacky way to adjust opacity of background picture:
@@ -50,7 +53,8 @@ make_scanpath <- function(participant, trial){
     geom_point(aes(size = Duration), alpha = .8) +
     geom_text_repel(aes(label = Duration), size = 3, color = "white") +
     xlim(0,1680) + ylim(0,1050) +
-    theme_light()
+    theme_light() + 
+    ggtitle(x$SearchOrCount)
   
   print(p)
 }
@@ -76,7 +80,7 @@ make_scanpath("cass1", 1)
 And here is one from the Count condition:
 
 ```{r}
-...
+make_scanpath("cass1", 6)
 ```
 
 Smukt!
@@ -90,7 +94,9 @@ Using a for-loop, make a scanpath for one participant of your choice in the Visu
 - Can we spot the trials in which the participants found the star?
 
 ```{r}
-...
+for (i in 1:10) {
+  make_scanpath("esben1", i)
+}
 ```
 
 ### Heatmaps
@@ -121,13 +127,13 @@ Then, we build a function that plots the heatmap using ggplot2:
 make_heatmap <- function(participant, trial){
   
   ## Select only the participant/trial of interest
-  x <- Fixations[Fixations$ParticipantID == participant & Fixations$Trial == trial,]
+  x <- fixations_foraging[fixations_foraging$ParticipantID == participant & fixations_foraging$Trial == trial,]
   
   ## Load the picture and turn in into a rasterized grob that we can plot in ggplot
   img <- jpeg::readJPEG(paste0('data/stimuli_foraging/', x$Stimulus[1])) 
   img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
   
-  p <- ggplot(Fixations, aes(PositionX, PositionY, color = FixationNo)) + 
+  p <- ggplot(x, aes(PositionX, PositionY_flipped, color = FixationNo)) + 
     annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
     annotate(geom = "rect", xmin = 0, xmax = 1680, ymin = 0, ymax = 1050, fill = "white", alpha = .3) +
     # the next line is the density function (needed to plot the different colors)
@@ -136,7 +142,8 @@ make_heatmap <- function(participant, trial){
     scale_fill_gradientn(colours = heat_colors(10), trans="sqrt") +
     # and apply dynamic alpha to it so that the fewer the fixations, the more transparent the color
     scale_alpha(range = c(0.1, 0.6)) + xlim(0,1680) + ylim(0,1050) + theme(legend.position = "none") +
-    theme_light()
+    theme_light() + 
+    ggtitle(x$SearchOrCount)
   
   print(p)
 }
@@ -145,13 +152,15 @@ make_heatmap <- function(participant, trial){
 And now we can finally make our heatmap -- pick a participant and a trial:
 
 ```{r}
-...
+make_heatmap("esben1", 3)
 ```
 
 And one more:
 
 ```{r}
-...
+for (i in 1:10) {
+ make_heatmap("NikM2", i) 
+}
 ```
 
 Wonderful!
@@ -161,7 +170,30 @@ Wonderful!
 Using the heatmap code above, make a cumulative heatmap for all participants in the Foraging experiment looking at the ‘penguins.jpg’ image. Facet the graph by condition (Search vs. Count). What do you notice?
 
 ```{r}
-...
+make_heatmap_all <- function(image){
+
+  ## Load the picture and turn in into a rasterized grob that we can plot in ggplot
+  img <- jpeg::readJPEG(paste0(image, x$Stimulus[1])) 
+  img <- grid::rasterGrob(img, width=unit(1, "npc"), height = unit(1,"npc"), interpolate = FALSE)
+  
+  p <- ggplot(fixations_foraging, aes(PositionX, PositionY_flipped, color = FixationNo)) + 
+    annotation_custom(img, xmin = 0, xmax = 1680, ymin = 0, ymax = 1050) +
+    annotate(geom = "rect", xmin = 0, xmax = 1680, ymin = 0, ymax = 1050, fill = "white", alpha = .3) +
+    # the next line is the density function (needed to plot the different colors)
+    stat_density2d(geom = "raster", aes(fill = ..density.., alpha = sqrt(sqrt(..density..))), contour = FALSE, n = 1000) +
+    # we take the density data and apply the colors that we chose
+    scale_fill_gradientn(colours = heat_colors(10), trans="sqrt") +
+    # and apply dynamic alpha to it so that the fewer the fixations, the more transparent the color
+    scale_alpha(range = c(0.1, 0.6)) + xlim(0,1680) + ylim(0,1050) + theme(legend.position = "none") +
+    theme_light() + 
+    ggtitle(x$SearchOrCount) + 
+    facet_wrap(. ~SearchOrCount)
+  
+  print(p)
+}
+
+
+make_heatmap_all('data/stimuli_foraging/penguins.jpg')
 ```
 
 ### Areas of Interest (AOIs)
