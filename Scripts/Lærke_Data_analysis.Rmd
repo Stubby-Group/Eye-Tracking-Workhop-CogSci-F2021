@@ -16,8 +16,8 @@ pacman::p_load(tidyverse, jpeg, grid, lme4, lmerTest, DHARMa, MuMIn)
 
 ```{r load data}
 ## We need the guess_max = Inf here, even though this will make the file loading slower
-Fixations <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/Fixations_final.csv", guess_max = Inf)
-Saccades <- read_csv("C:/Users/cecil/Desktop/r sfuff idk/Eye-Tracking-Workhop-CogSci-F2021/data/Saccades_final.csv")
+Fixations <- read_csv("/Users/laerkebraedder/Desktop/Uni/Models for Perception and Action/Eye-tracking_workshop/Eye-Tracking-Workhop-CogSci-F2021/data/Fixations_final.csv", guess_max = Inf)
+Saccades <- read_csv("/Users/laerkebraedder/Desktop/Uni/Models for Perception and Action/Eye-tracking_workshop/Eye-Tracking-Workhop-CogSci-F2021/data/Saccades_final.csv")
 ```
 
 ## Visual foraging (Rhodes et al., 2014)
@@ -31,13 +31,14 @@ We know from the paper that the amplitude of saccades in the searching task has 
 Let's start by testing this hypothesis. First of all we plot the density distribution of saccade amplitudes in the two tasks:
 
 ```{r}
+saccades_foraging <- subset(Saccades, Task == "Visual foraging")
+saccades_soceng <- subset(Saccades, Task == "Social engagement")
 
-vf_Saccades <- subset(Saccades,Task == "Visual foraging")
-se_Saccades <- subset(Saccades,Task == "Social engagement")
+saccades_foraging_search <- subset(saccades_foraging, SearchOrCount == "Search")
+saccades_foraging_count <- subset(saccades_foraging, SearchOrCount == "Count")
 
-plot(density(vf_Saccades$Amplitude))
-plot(density(se_Saccades$Amplitude))
-
+plot(density(saccades_foraging_search$Amplitude))
+plot(density(saccades_foraging_count$Amplitude))
 ```
 
 The plot seems to show that searching has a thin head and a long tail, whereas the opposite is true of counting.
@@ -45,7 +46,7 @@ The plot seems to show that searching has a thin head and a long tail, whereas t
 Let's model the data. Start by trying to figure out how the data are distributed. We will first make a gaussian model for baseline, which we know doesn't make sense given what the data looks like. Find the fixed and random effect structure that you think is most appropriate.
 
 ```{r}
-mGaus <- 
+mGaus <- ...
 
 summary(mGaus)
 ```
