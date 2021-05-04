@@ -26,7 +26,7 @@ We want to test the hypothesis that eye movements are affected by task structure
 
 ### Hypothesis 1: Longer tail for saccades amplitude in Search (vs Count) condition
 
-We know from the paper that the amplitude of saccades in the searching task has a peculiar frequency distribution with a long tail. This means that most of the saccades have very short amplitued, but few of them have very high amplitude (since our eyes are "hopping" to a new place where we can forage). The same may not be true for the counting task, where we expect there to be less variation in the amplitude of saccades (thus a shorter tail). 
+We know from the paper that the amplitude of saccades in the searching task has a peculiar frequency distribution with a long tail. This means that most of the saccades have very short amplitues, but few of them have very high amplitude (since our eyes are "hopping" to a new place where we can forage). The same may not be true for the counting task, where we expect there to be less variation in the amplitude of saccades (thus a shorter tail). 
 
 Let's start by testing this hypothesis. First of all we plot the density distribution of saccade amplitudes in the two tasks:
 
@@ -39,6 +39,9 @@ saccades_foraging_count <- subset(saccades_foraging, SearchOrCount == "Count")
 
 plot(density(saccades_foraging_search$Amplitude))
 plot(density(saccades_foraging_count$Amplitude))
+
+ggplot() + 
+  geom_density(aes(Amplitude, fill = SearchOrCount), alpha = 0.5, data = saccades_foraging)
 ```
 
 The plot seems to show that searching has a thin head and a long tail, whereas the opposite is true of counting.
@@ -46,7 +49,11 @@ The plot seems to show that searching has a thin head and a long tail, whereas t
 Let's model the data. Start by trying to figure out how the data are distributed. We will first make a gaussian model for baseline, which we know doesn't make sense given what the data looks like. Find the fixed and random effect structure that you think is most appropriate.
 
 ```{r}
-mGaus <- ...
+mGaus <- glmer(Amplitude ~ SearchOrCount + 
+                 ( 1 + SearchOrCount | ParticipantID ) +
+                 ( 1 + SearchOrCount | Stimulus ), 
+               data = saccades_foraging, 
+               family = gaussian(link = "identity"))
 
 summary(mGaus)
 ```
@@ -55,8 +62,14 @@ We can then try modelling the data with a lognormal distribution, which seems mo
 
 ```{r}
 Saccades <- Saccades %>% filter(Amplitude > 0)
+saccades_foraging <- saccades_foraging %>% filter(Amplitude > 0)
 
-mLog <- ...
+
+mLog <- glmer(Amplitude ~ SearchOrCount + 
+                 ( 1 + SearchOrCount | ParticipantID ) +
+                 ( 1 + SearchOrCount | Stimulus ), 
+               data = saccades_foraging, 
+               family = gaussian(link = "log"))
 
 summary(mLog)
 ```
@@ -76,8 +89,8 @@ plot(density(Saccades$Amplitude), main = "Observed saccade amplitude")
 Numericaly compare the model predictions to the actual data (in absolute values) in order to get an idea of how well the model predicts the data:
 
 ```{r}
-summary(abs(pm1- ... ))
-summary(abs(pm2- ... ))
+summary(abs(pm1- saccades_foraging$Amplitude))
+summary(abs(pm2- saccades_foraging$Amplitude))
 ```
 
 We can compare observed data and model predictions more formally by looking at the residuals of the fitted models. To do this, we use the DHARMa (residual Diagnostics for HierArchical Regression Models) package:
@@ -132,8 +145,16 @@ We can imagine that people make slightly longer fixations when counting objects 
 Let's start by plotting fixation duration in the two conditions:
 
 ```{r}
-...
+fixations_foraging <- subset(Fixations, Task == "Visual foraging")
 
+fixations_foraging_search <- subset(fixations_foraging, SearchOrCount == "Search")
+fixations_foraging_count <- subset(fixations_foraging, SearchOrCount == "Count")
+
+plot(density(fixations_foraging_search$Duration))
+plot(density(fixations_foraging_count$Duration))
+
+ggplot() + 
+  geom_density(aes(Duration, fill = SearchOrCount), alpha = 0.5, data = fixations_foraging)
 ```
 
 What do the plots seem to show? Do they corroborate our hypothesis?
@@ -141,9 +162,15 @@ What do the plots seem to show? Do they corroborate our hypothesis?
 Let's test this statistically as well. We will take the same approach as above by running a Gaussian model first, and a Log-normal model afterward.
 
 ```{r}
-mGaus <- ...
+mGaus <- glmer(Duration ~ SearchOrCount + 
+                 ( 1 | ParticipantID ), 
+               data = fixations_foraging, 
+               family = gaussian(link = "identity"))
 
-mLog <- ...
+mLog <- glmer(Duration ~ SearchOrCount + 
+                 ( 1 | ParticipantID ), 
+               data = fixations_foraging, 
+               family = gaussian(link = "log"))
 
 summary(mGaus)
 summary(mLog)
@@ -154,7 +181,13 @@ If the fit is singular, do a step-wise reduction of the random effect structure 
 What do the models show? And which model is the best fit to the data? Generate predictions from the models and plot their density, then compare the predictions to the distribution of the actual data.
 
 ```{r}
-...
+pm1 <- predict(mGaus)
+pm2 <- predict(mLog)
+
+par(mfrow=c(1,3))
+plot(density(pm1), main = "Gaussian")
+plot(density(pm2), main = "Log-transformed")
+plot(density(Saccades$Amplitude), main = "Observed saccade amplitude")
 
 ```
 
@@ -178,28 +211,43 @@ We want to test the hypothesis that viewers are more emotionally engaged when in
 First, we have to extract data from the PyschoPy variable "video" to determine whether the condition is Ostensive vs Non-ostensive and Direct vs Indirect:
 
 ```{r}
-Fixations <- Fixations %>% 
+fixations_soceng <- subset(Fixations, Task == "Social engagement")
+
+fixations_soceng <- fixations_soceng %>% 
   mutate(
     Direction = case_when(
-      grepl('dir', Fixations$video) ~ "Direct",
-      grepl('div', Fixations$video) ~ "Indirect"),
+      grepl('dir', fixations_soceng$video) ~ "Direct",
+      grepl('div', fixations_soceng$video) ~ "Indirect"),
     Ostensiveness = case_when(
-      grepl('\\+o', Fixations$video) ~ "Ostensive",
-      grepl('-o', Fixations$video) ~ "Non-ostensive")
+      grepl('\\+o', fixations_soceng$video) ~ "Ostensive",
+      grepl('-o', fixations_soceng$video) ~ "Non-ostensive")
   )
 ```
 
 We can now plot the data. We start by looking at the overall values of pupil size. Do they differ based on conditions (Ostensiveness & Direction)? Let's plot the data first and model them afterwards.
 
 ```{r}
-...
+fixations_soceng <- fixations_soceng %>%
+  mutate(
+    Condition = paste0(Direction, Ostensiveness)
+  )
 
+ggplot() + 
+  geom_density(aes(PupilSize, fill = Condition), alpha = 0.4, data = fixations_soceng)
+
+ggplot() + 
+  geom_density(aes(PupilSize, fill = Ostensiveness), alpha = 0.5, data = fixations_soceng)
+
+ggplot() + 
+  geom_density(aes(PupilSize, fill = Direction), alpha = 0.5, data = fixations_soceng)
 ```
 
 Now model the data. Make sure to include all relevant fixed effects. Make also sure that you account for the fact that different people have different baselines of pupil size.
 
 ```{r}
-mPupil <- ...
+mPupil <- lmer(PupilSize ~ Direction * Ostensiveness + (1 | ParticipantID) + (1 | ParticipantID:Trial), fixations_soceng)
+
+mPupil <- lmer(PupilSize ~ Direction * Ostensiveness + (1 | ParticipantID) + (1 | Trial), fixations_soceng)
 
 summary(mPupil)
 ```
@@ -209,14 +257,24 @@ We can then look at how pupil size changes over time. This is a good way to acco
 Plot the data using geom_smooth(method = "gam") in ggplot to see how pupil size changes over time. Remember to only include data from the Social engagement task. Include both Ostensiveness and Direction as variables in the plot. What do we see?
 
 ```{r}
-...
+#Look how pupil size changes over time - luminosity of stim changes over time.
 
+ggplot(fixations_soceng, aes(StartTime, PupilSize, fill = Direction)) + 
+  geom_smooth(method = "gam") + 
+  facet_wrap(. ~Ostensiveness)
+
+ggplot(fixations_soceng, aes(FixationNo, PupilSize, fill = Direction)) + 
+  geom_smooth(method = "gam") + 
+  facet_wrap(. ~Ostensiveness)
 ```
 
 Now model the data to see whether we find a main effect of Ostensiveness and an interaction with Direction. Remember the time factor!
 
 ```{r}
-mPupil2 <- ...
+mPupil2 <- lmer(PupilSize ~ 0 + FixationNo + Ostensiveness*Direction + 
+                  (1 + Ostensiveness*Direction | ParticipantID) + 
+                  (1 | Trial),
+                data = fixations_soceng)
 
 summary(mPupil2)
 ```
@@ -230,14 +288,26 @@ Fixations may last longer in the Ostensive + Direct condition as a sign that peo
 Let's start by plotting the data:
 
 ```{r}
-...
+ggplot(fixations_soceng, aes(StartTime, PupilSize, fill = Direction)) + 
+  geom_smooth(method = "gam") + 
+  facet_wrap(. ~Ostensiveness)
 
+ggplot() + 
+  geom_density(aes(Duration, fill = Condition), alpha = 0.4, data = fixations_soceng)
+
+ggplot() + 
+  geom_density(aes(Duration, fill = Direction), alpha = 0.4, data = fixations_soceng) + 
+  facet_wrap(. ~Ostensiveness)
 ```
 
 The plot doesn't seem to show much difference. What if we model the data?
 
 ```{r}
-mDuration <- ...
+mDuration <- lmer(Duration ~ Ostensiveness * Direction + 
+                  (1 | ParticipantID) + 
+                  (1 | Trial),
+                family = gaussian(link = "log"),
+                data = fixations_soceng)
 
 summary(mDuration)
 ```
